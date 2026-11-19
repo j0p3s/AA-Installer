@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+def ksFile = System.getenv('AAI_KEYSTORE')
+
+android {
+    namespace 'io.github.j0p3s.aainstaller'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'io.github.j0p3s.aainstaller'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    buildFeatures {
+        aidl true
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv('AAI_KS_PASS')
+                keyAlias System.getenv('AAI_KEY_ALIAS')
+                keyPassword System.getenv('AAI_KEY_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (ksFile) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
+}
