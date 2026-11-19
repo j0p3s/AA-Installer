@@ -12,6 +12,8 @@ It also includes the **[CarBridge](https://github.com/jmwerk/CarBridge)** car pa
 
 Built for Android 16 (targets SDK 36). Works on Android 8.0 and newer.
 
+![Screens](docs/screens.png)
+
 ## Why this is needed
 
 Android Auto only lists apps whose *installer of record* is the Play Store. Apps you sideload are recorded as installed by your file manager or browser, so Android Auto hides them, even when they fully support Android Auto.

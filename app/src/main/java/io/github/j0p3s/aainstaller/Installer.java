@@ -45,6 +45,7 @@ public final class Installer {
         public String version = "?";
         public int targetSdk;
         public boolean androidAuto;
+        public android.graphics.drawable.Drawable icon;
         public String aaReason = "";
     }
 
@@ -143,6 +144,10 @@ public final class Installer {
         p.packageName = info.packageName;
         p.version = info.versionName + " (" + (Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode) + ")";
         p.targetSdk = ai.targetSdkVersion;
+        try {
+            p.icon = ai.loadIcon(pm);
+        } catch (Throwable ignored) {
+        }
         try {
             p.label = String.valueOf(ai.loadLabel(pm));
         } catch (Throwable t) {
