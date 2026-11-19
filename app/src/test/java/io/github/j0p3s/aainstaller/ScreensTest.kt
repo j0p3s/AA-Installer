@@ -46,6 +46,7 @@ class ScreensTest {
         override fun openDeveloperOptions() {}
         override fun openUrl(url: String) {}
         override fun launch(pkg: String) {}
+        override fun share(file: java.io.File) {}
     }
 
     private fun entry(label: String, pkg: String, inst: String?, aa: Boolean = true, car: Boolean = false) =
@@ -146,5 +147,19 @@ class ScreensTest {
         }
         rule.setContent { AppTheme { AppRoot(vm, noop) } }
         shot("8_failed_retry")
+    }
+
+    @Test fun saved_export() {
+        val vm = model()
+        val f = File(System.getProperty("java.io.tmpdir"), "Waze-car-copy.apk").apply { writeBytes(ByteArray(180_000)) }
+        vm.job = Job("Car copy of Waze", null).apply {
+            state = JobState.SUCCESS; step = "Ready to save"
+            message = "Save the APK or share it. Uninstall the original app before installing it, because it is signed with a different key."
+            export = f
+            log.addAll(listOf("▶ Building Waze (Car)", "  Merging 3 APKs into one", "  Merging base", "  Merging config.arm64_v8a",
+                "  Car-enabled (parked game): com.waze.FreeMapAppActivity", "  Signing", "  Verifying signatures", "Kept Waze-car-copy.apk (175.8 KB) to save or share"))
+        }
+        rule.setContent { AppTheme { AppRoot(vm, noop) } }
+        shot("9_save_share")
     }
 }

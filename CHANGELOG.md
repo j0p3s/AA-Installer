@@ -2,6 +2,17 @@
 
 All notable changes to AA Installer. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-11-19
+
+### Added
+- **Save APK / Share** for car-patched apps: the signed result is kept so you can save it anywhere or send it to another app or phone.
+- **Save APK only** (Car copy dialog) and **Car-enable and save APK only** (Install tab): build without installing, and without Shizuku or root.
+- **Single APK** option (on by default): merges split APKs (APKS/XAPK/APKM) into one standalone APK before patching. If merging fails, the splits are kept.
+- Ported from [Android Auto Maker](https://github.com/malebuffy/AndroidAutoMaker) (GPL-3.0, parked mode only): split merging, removal of Play Store build stamps, optional automotive feature.
+
+### Changed
+- **Car apps are now parked-only**, following Android Auto Maker's parked-game mode. The patch declares the app a game, adds only the `CAR_LAUNCHER` category, and **removes** every "distraction-optimised" flag. It no longer adds the navigation/maps categories, `MAP_TEMPLATES`/`ACCESS_SURFACE` permissions or `minCarApiLevel` that the CarBridge rules added.
+
 ## [1.3.2] - 2026-11-19
 
 ### Fixed
@@ -62,6 +73,7 @@ All notable changes to AA Installer. Format based on [Keep a Changelog](https://
 - Open or share an APK from a file manager.
 - Clear explanations for common install errors, including RedMagic/nubia `INSTALL_FAILED_USER_RESTRICTED`.
 
+[1.4.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.4.0
 [1.3.2]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.2
 [1.3.1]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.1
 [1.3.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.0

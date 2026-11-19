@@ -1,5 +1,7 @@
 /*
  * Ported from CarBridge (https://github.com/jmwerk/CarBridge, commit 8fea836), GPL-3.0.
+ * Parked-only rules (v1.4.0) follow the "parked game" mode of Android Auto Maker
+ * (https://github.com/malebuffy/AndroidAutoMaker, commit 9b83522), GPL-3.0.
  * Used in AA Installer under the same licence.
  * SPDX-License-Identifier: GPL-3.0-only
  */
@@ -11,6 +13,8 @@ data class CarOptions(
     val keepMediaServices: Boolean = false,
     /** Drop portrait-only locks, so the app fills the landscape car display. */
     val fillScreen: Boolean = true,
+    /** Merge split APKs into one standalone APK before patching (easier to save and share). */
+    val mergeSplits: Boolean = true,
 )
 
 /**
@@ -28,6 +32,8 @@ object CarPatch {
     val RESOURCE = AndroidAttr("resource", 0x01010025)
     val RESIZEABLE = AndroidAttr("resizeableActivity", 0x010104f6)
     val APP_CATEGORY = AndroidAttr("appCategory", 0x01010545, mapOf("game" to 0))
+    val IS_GAME = AndroidAttr("isGame", 0x010103f4)
+    val EXPORTED = AndroidAttr("exported", 0x01010010)
     val SCREEN_ORIENTATION = AndroidAttr(
         "screenOrientation",
         0x0101001e,
@@ -42,12 +48,8 @@ object CarPatch {
     // ActivityInfo.SCREEN_ORIENTATION_{PORTRAIT, SENSOR_PORTRAIT, REVERSE_PORTRAIT, USER_PORTRAIT}
     val PORTRAIT_ORIENTATIONS = setOf(1, 7, 9, 12)
 
-    val CAR_PERMISSIONS = listOf("androidx.car.app.ACCESS_SURFACE", "androidx.car.app.MAP_TEMPLATES")
-    val CAR_CATEGORIES = listOf(
-        "android.intent.category.CAR_LAUNCHER",
-        "androidx.car.app.category.NAVIGATION",
-        "android.intent.category.APP_MAPS",
-    )
+    const val CAR_LAUNCHER = "android.intent.category.CAR_LAUNCHER"
+    const val DISTRACTION_OPTIMIZED = "distractionOptimized"
     val MEDIA_SERVICE_ACTIONS = setOf(
         "android.media.browse.MediaBrowserService",
         "androidx.media3.session.MediaLibraryService",
@@ -66,32 +68,43 @@ object CarPatch {
         (app.children("activity") + app.children("activity-alias"))
             .filter { a -> a.children("intent-filter").any(::isLauncherFilter) }
 
+    /**
+     * Parked-only: the app is declared a game and listed in Android Auto's launcher, and every
+     * "distraction optimised" claim is removed, so Android Auto only shows it while parked.
+     */
     private fun addCarEntries(host: ManifestHost, app: ManifestElement) {
         app.setEnum(APP_CATEGORY, "game")
-        ensureMeta(app, "distractionOptimized") { it.setBoolean(VALUE, true) }
-        ensureMeta(app, "androidx.car.app.minCarApiLevel") { it.setInt(VALUE, 7) }
+        app.setBoolean(IS_GAME, true)
         if (findMeta(app, CAR_APP_META) == null) {
             host.addAutomotiveDescriptor(DESCRIPTOR_NAME, "media")
             ensureMeta(app, CAR_APP_META) { it.setResource(RESOURCE, "xml", DESCRIPTOR_NAME) }
         }
 
-        for (perm in CAR_PERMISSIONS) {
-            if (!host.hasPermission(perm)) host.addPermission(perm)
+        val components = listOf(app) + app.children("activity") + app.children("activity-alias")
+        var removed = 0
+        for (element in components) {
+            for (meta in element.children("meta-data")) {
+                if (meta.getString(NAME) == DISTRACTION_OPTIMIZED) {
+                    element.removeChild(meta)
+                    removed++
+                }
+            }
         }
+        if (removed > 0) host.log("Removed $removed distraction-optimised flag(s): parked use only")
 
         val patched = mutableListOf<String>()
         for (activity in app.children("activity") + app.children("activity-alias")) {
             for (filter in activity.children("intent-filter")) {
                 if (!isLauncherFilter(filter)) continue
                 val existing = filter.children("category").mapNotNull { it.getString(NAME) }.toSet()
-                for (cat in CAR_CATEGORIES - existing) filter.append("category").setString(NAME, cat)
-                ensureMeta(activity, "distractionOptimized") { it.setBoolean(VALUE, true) }
+                if (CAR_LAUNCHER !in existing) filter.append("category").setString(NAME, CAR_LAUNCHER)
                 activity.setBoolean(RESIZEABLE, true)
+                activity.setBoolean(EXPORTED, true)
                 activity.getString(NAME)?.let(patched::add)
             }
         }
         check(patched.isNotEmpty()) { "no launcher activity found" }
-        host.log("Car-enabled: ${patched.joinToString()}")
+        host.log("Car-enabled (parked game): ${patched.joinToString()}")
     }
 
     private fun stripTemplateServices(host: ManifestHost, app: ManifestElement, actions: Set<String>) {

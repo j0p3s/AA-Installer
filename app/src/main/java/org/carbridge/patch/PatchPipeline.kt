@@ -1,8 +1,9 @@
 /*
  * Ported from CarBridge (https://github.com/jmwerk/CarBridge, commit 8fea836), GPL-3.0.
  * Changed for AA Installer: can also patch a picked APK/bundle in place (keeps the package
- * name, like CarBridge Patches for Morphe), and returns the files for AA Installer's own
- * Shizuku/root install session.
+ * name, like CarBridge Patches for Morphe), merges splits into one APK first (ported from
+ * Android Auto Maker, GPL-3.0), and returns the files for AA Installer's own Shizuku/root
+ * install session or for saving.
  */
 package org.carbridge.patch
 
@@ -44,7 +45,7 @@ class PatchPipeline(private val context: Context, private val log: (String) -> U
         val total = (splits + base).sumOf { it.length() }
         log("Reading ${total / MB} MB in ${splits.size + 1} APK(s)")
         // Unsigned and signed copies sit side by side while signing
-        val needed = total * 2 + 64 * MB
+        val needed = total * (if (options.mergeSplits && splits.isNotEmpty()) 4 else 2) + 64 * MB
         val free = try {
             // Includes cache Android would clear to make room, unlike File.usableSpace
             val storage = context.getSystemService(StorageManager::class.java)
@@ -56,9 +57,25 @@ class PatchPipeline(private val context: Context, private val log: (String) -> U
             throw PatchFailure("Not enough free space: needs about ${needed / MB} MB, ${free / MB} MB free.")
         }
 
+        var base = base
+        var splits = splits
+        if (options.mergeSplits && splits.isNotEmpty()) {
+            log("Merging ${splits.size + 1} APKs into one")
+            val merged = File(work, "merged.unsigned.apk")
+            try {
+                SplitMerger.merge(listOf(base) + splits, work, merged, log)
+                base = merged
+                splits = emptyList()
+            } catch (e: Throwable) {
+                merged.delete()
+                log("Merging failed (${e.message ?: e.javaClass.simpleName}); keeping the split APKs")
+            }
+        }
+
         val patcher = ManifestPatcher(log)
         val unsignedBase = File(work, "base.unsigned.apk")
         val minSdk = rewrite(base, unsignedBase) { apk -> patcher.patch(apk, newPackage, branding, options) }
+        if (base.name == "merged.unsigned.apk") base.delete()
         val unsignedSplits = splits.mapIndexed { i, split ->
             File(work, "split$i.unsigned.apk").also { out ->
                 rewrite(split, out) { apk -> if (newPackage != null) patcher.patchSplit(apk, newPackage) }

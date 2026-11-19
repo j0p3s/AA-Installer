@@ -1,6 +1,6 @@
 # AA Installer user guide
 
-This guide covers AA Installer v1.3.2 and later.
+This guide covers AA Installer v1.4.0 and later.
 
 - [1. What you need](#1-what-you-need)
 - [2. Set up Shizuku (no root)](#2-set-up-shizuku-no-root)
@@ -61,7 +61,7 @@ Recommended: Setup tab → **Android Auto app info** → Battery → **Unrestric
    - **No Android Auto support**: it installs, but won't show in the car unless you car-enable it.
    - **2 parts / 3 parts…**: a split APK.
    - **Installed · …**: the app is already installed, and by whom. Installing again updates it and keeps its data.
-3. Optional: **Car-enable before installing** applies the [car patch](#car-patch-options) to this APK and keeps its package name. The APK is re-signed on your phone.
+3. Optional: **Car-enable before installing** applies the [car patch](#car-patch-options) to this APK and keeps its package name. The APK is re-signed on your phone. **Car-enable and save APK only** builds it without installing, for [saving or sharing](#save-and-share).
 4. Tap **Install as Play Store app** (or **Update as Play Store app**).
 5. When the progress panel shows ✅, reconnect to Android Auto.
 
@@ -80,7 +80,7 @@ This tab builds a **car copy** of any app on your phone. CarBridge describes the
 
 1. Set the [car patch options](#car-patch-options).
 2. Search for the app and tap it. Use the **System apps** filter to show built-in apps.
-3. Confirm **Build**.
+3. Confirm **Build** to build and install it, or **Save APK only** to build it without installing (no Shizuku or root needed). Then use **Save APK** or **Share**.
 
 What you get:
 
@@ -95,6 +95,18 @@ What you get:
 |---|---|---|
 | **Fill the car screen** | On | Removes portrait-only locks, so screens fill the wide car display. Turn it off if a screen breaks. |
 | **Keep media services** | Off | Music and podcast apps keep Android Auto's own audio player. With it off, they show the full app instead. |
+| **Single APK** | On | Merges split APKs (APKS/XAPK/APKM) into one APK before patching. Easier to save and share. If merging fails, AA Installer keeps the splits; turn it off if an app misbehaves. |
+
+**Car apps are parked-only.** Android Auto shows them only while the car is stopped. This is intentional.
+
+### Save and share
+
+Every car-patched build is kept until the next one. When the progress panel shows ✅:
+
+- **Save APK** saves it where you choose (Downloads, Drive…).
+- **Share** sends it to another app (Telegram, Quick Share…).
+
+It's one `.apk`, or an `.apks` bundle if *Single APK* was off or merging failed. It is signed with **your phone's** car-signing key, so on another phone uninstall the original app first.
 
 ### Which apps work
 

@@ -339,6 +339,17 @@ private fun CarOptions(vm: AppModel) {
         "Music and podcast apps keep Android Auto's audio player instead of the full app.",
         vm.keepMedia,
     ) { vm.keepMedia = it }
+    SwitchRow(
+        "Single APK",
+        "Merge split APKs (APKS/XAPK/APKM) into one APK. Easier to save and share; turn off if an app breaks.",
+        vm.mergeSplits,
+    ) { vm.mergeSplits = it }
+    Text(
+        "Car apps are parked-only: Android Auto shows them while the car is stopped.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(vertical = 6.dp),
+    )
 }
 
 @Composable
@@ -481,6 +492,13 @@ private fun InstallScreen(vm: AppModel, actions: Actions) {
                     }
                     Text(if (vm.pickedInstaller != null) "Update as Play Store app" else "Install as Play Store app", fontSize = 16.sp)
                 }
+                if (vm.carEnable) {
+                    OutlinedButton(
+                        onClick = vm::savePickedCarEnabled,
+                        enabled = !vm.busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Car-enable and save APK only") }
+                }
                 TextButton(onClick = pick, modifier = Modifier.fillMaxWidth()) { Text("Choose another file") }
             }
         }
@@ -582,7 +600,12 @@ private fun CarScreen(vm: AppModel, actions: Actions) {
             confirmButton = {
                 Button(onClick = { confirm = null; vm.carCopy(e) }, enabled = !vm.busy) { Text(if (e.hasCarCopy) "Rebuild" else "Build") }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { confirm = null }) { Text("Cancel") }
+                    TextButton(onClick = { confirm = null; vm.carCopy(e, install = false) }, enabled = !vm.busy) { Text("Save APK only") }
+                }
+            },
         )
     }
 }
@@ -808,6 +831,28 @@ private fun JobSheet(job: Job, vm: AppModel, actions: Actions) {
             Spacer(Modifier.height(12.dp))
             LogBox(job.log, Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 280.dp))
             Spacer(Modifier.height(16.dp))
+            val export = job.export
+            if (!running && export != null && job.state != JobState.FAILED) {
+                val ctx = LocalContext.current
+                val saver = rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument(ExportProvider.mimeFor(export.name)),
+                ) { uri ->
+                    if (uri != null) vm.saveExport(uri) { ok ->
+                        android.widget.Toast.makeText(ctx, if (ok) "Saved ${export.name}" else "Could not save the file", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+                Text(
+                    "${export.name} · ${Installer.human(export.length())}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = { saver.launch(export.name) }, modifier = Modifier.weight(1f)) { Text("Save APK") }
+                    FilledTonalButton(onClick = { actions.share(export) }, modifier = Modifier.weight(1f)) { Text("Share") }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
             if (!running) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     job.retryWithUninstall?.let { retry ->
@@ -820,7 +865,7 @@ private fun JobSheet(job: Job, vm: AppModel, actions: Actions) {
                         ) { Text("Uninstall & retry") }
                         Spacer(Modifier.width(8.dp))
                     }
-                    if (job.state != JobState.FAILED) {
+                    if (job.state != JobState.FAILED && job.step != "Ready to save") {
                         TextButton(onClick = { vm.dismissJob(); actions.openAndroidAuto() }) { Text("Android Auto settings") }
                     }
                     Spacer(Modifier.width(8.dp))

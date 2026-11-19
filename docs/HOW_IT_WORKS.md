@@ -62,21 +62,29 @@ If either would make Android refuse the update, the user is asked whether to run
 
 An app counts as supporting Android Auto if its manifest has `com.google.android.gms.car.application` or `androidx.car.app.minCarApiLevel` metadata.
 
-## The car patch (CarBridge)
+## The car patch (parked-only)
 
-`org.carbridge.core.CarPatch` and `org.carbridge.patch.*` are ported from [CarBridge](https://github.com/jmwerk/CarBridge) (GPL-3.0, commit `8fea836`). The binary manifest is edited with ARSCLib:
+`org.carbridge.core.CarPatch` and `org.carbridge.patch.*` are ported from [CarBridge](https://github.com/jmwerk/CarBridge) (GPL-3.0, commit `8fea836`). Since v1.4.0 the rules follow the **parked game** mode of [Android Auto Maker](https://github.com/malebuffy/AndroidAutoMaker) (GPL-3.0, commit `9b83522`; `SplitMerger`, `ParkedExtras`). Its navigation / while-driving mode is deliberately not included. The binary manifest is edited with ARSCLib:
 
 | Change | Why |
 |---|---|
-| `application android:appCategory="game"` | Android Auto lets this category show a full UI |
-| `<meta-data distractionOptimized=true>` on the app and launcher activities | Marks the UI as allowed on the car display |
-| `androidx.car.app.minCarApiLevel = 7` | Car API level declaration |
+| `application android:appCategory="game"`, `android:isGame="true"` | Android Auto shows parked games full screen while stopped |
+| **Removes** every `distractionOptimized` meta-data and attribute | Keeps the app parked-only |
 | `com.google.android.gms.car.application` → `res/xml/carbridge_automotive_app_desc.xml` (`<uses name="media"/>`), added only if missing | Makes Android Auto list the app |
-| `androidx.car.app.ACCESS_SURFACE`, `androidx.car.app.MAP_TEMPLATES` permissions | Car-surface access |
-| Launcher intent filters get `CAR_LAUNCHER`, `androidx.car.app.category.NAVIGATION`, `APP_MAPS` | Shows the app in Android Auto's launcher |
-| `resizeableActivity=true` on launcher activities | Fits the car display |
+| Launcher intent filters get `CAR_LAUNCHER` | Shows the app in Android Auto's launcher |
+| `resizeableActivity=true`, `exported=true` on launcher activities | Fits the car display; Android Auto can start it |
+| Optional `android.hardware.type.automotive` feature | Same APK installs on a phone |
+| Removes Play Store stamps (`com.android.vending.derived.apk.id`, `splits.required`, `isSplitRequired`…) | The re-signed APK installs |
 | Removes intent filters for `androidx.car.app.CarAppService` (and media browser services unless *Keep media services*) | Stops Android Auto using its template UI instead of the app |
 | *Fill the car screen*: removes portrait-only `screenOrientation` | Landscape car display |
+
+### Merging splits
+
+With *Single APK* on, `SplitMerger` loads the base and split APKs with ARSCLib's `ApkBundle`, merges them into one module (resources tables, dex, native libs), copies components declared in feature-split manifests, strips split metadata, marks the result `STAMP_TYPE_STANDALONE_APK`, and repairs resource-table entry counts. On any error the pipeline logs it and continues with the original splits.
+
+### Save and share
+
+The signed result is copied to `files/exports` (one `.apk`, or an `.apks` zip of the parts). **Save APK** writes it through the system file picker (`ACTION_CREATE_DOCUMENT`). **Share** serves it through a small read-only `ExportProvider` (`content://io.github.j0p3s.aainstaller.exports/…`) with a temporary read grant. It is not AndroidX FileProvider, which parses an XML config at runtime.
 
 **Car copy mode** also:
 
@@ -106,7 +114,8 @@ app/src/main/
   aidl/…/IShellService.aidl     shell service interface
   java/io/github/j0p3s/aainstaller/
     App.kt                      application class, crash reporter
-    MainActivity.kt             activity, intents, Shizuku listeners
+    MainActivity.kt             activity, intents, Shizuku listeners, share
+    ExportProvider.kt           read-only provider for sharing saved APKs
     Ui.kt                       Jetpack Compose / Material 3 screens
     AppModel.kt                 state, jobs, app lists
     Installer.java              bundle prep, pm session, AA detection, errors

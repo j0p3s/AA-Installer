@@ -54,6 +54,9 @@ class Job(val title: String, val icon: ImageBitmap?) {
 
     /** Set when the failure can be fixed by uninstalling the installed app first. */
     var retryWithUninstall by mutableStateOf<(() -> Unit)?>(null)
+
+    /** The patched APK (or .apks bundle) kept in files/exports, to save or share. */
+    var export by mutableStateOf<File?>(null)
 }
 
 /** Asks before uninstalling an app that can't be updated in place. */
@@ -95,6 +98,7 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     var carEnable by mutableStateOf(false)
     var fillScreen by mutableStateOf(true)
     var keepMedia by mutableStateOf(false)
+    var mergeSplits by mutableStateOf(true)
 
     var job by mutableStateOf<Job?>(null)
         internal set
@@ -253,18 +257,22 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         askUninstall = null
     }
 
+    private fun options() = CarOptions(keepMediaServices = keepMedia, fillScreen = fillScreen, mergeSplits = mergeSplits)
+
     private fun doInstall(p: Installer.Package, car: Boolean, uninstallFirst: Boolean) {
-        val opts = CarOptions(keepMedia, fillScreen)
+        val opts = options()
         run(
             if (car) "Installing ${p.label} (car-enabled)" else "Installing ${p.label}", pickedIcon, p.packageName,
             retry = if (uninstallFirst) null else ({ doInstall(p, car, uninstallFirst = true) }),
-        ) { sh, j ->
+        ) { shell, j ->
             var files: List<File> = p.apks
             if (car) {
                 step(j, "Applying the car patch")
                 val splits = p.apks.filter { it != p.base }
                 files = pipeline(j).inPlace(p.base, splits, opts)
+                keepExport(j, files, "${p.label}-car")
             }
+            val sh = shell.value
             if (uninstallFirst && isInstalled(p.packageName)) {
                 step(j, "Uninstalling the old ${p.label}")
                 Installer.uninstall(sh, p.packageName) { log(j, it) }
@@ -275,16 +283,32 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Applies the car patch to the picked file and keeps the result to save or share, without installing. */
+    fun savePickedCarEnabled() {
+        val p = picked ?: return
+        val opts = options()
+        run("Car-enabling ${p.label}", pickedIcon, p.packageName, retry = null) { _, j ->
+            step(j, "Applying the car patch")
+            val files = pipeline(j).inPlace(p.base, p.apks.filter { it != p.base }, opts)
+            keepExport(j, files, "${p.label}-car")
+            null
+        }
+    }
+
     fun retag(e: AppEntry) {
-        run("Fixing ${e.label}", loadIcon(e.info), e.pkg, retry = null) { sh, j ->
+        run("Fixing ${e.label}", loadIcon(e.info), e.pkg, retry = null) { shell, j ->
             step(j, "Re-registering with the Play Store as installer")
-            Installer.retag(sh, e.info) { log(j, it) }
+            Installer.retag(shell.value, e.info) { log(j, it) }
             e.pkg
         }
     }
 
-    fun carCopy(e: AppEntry) {
+    fun carCopy(e: AppEntry, install: Boolean = true) {
         if (busy) return
+        if (!install) {
+            doCarCopy(e, uninstallFirst = false, install = false)
+            return
+        }
         val carPkg = PatchPipeline.carPackageName(e.pkg)
         val stale = isInstalled(carPkg) &&
             !runCatching { KeystoreSigner().signedHere(ctx.packageManager, carPkg) }.getOrDefault(true)
@@ -292,22 +316,25 @@ class AppModel(app: Application) : AndroidViewModel(app) {
             askUninstall = UninstallAsk(
                 "${e.label}${PatchPipeline.CAR_LABEL_SUFFIX}", carPkg,
                 "The existing car copy was signed with an older key (AA Installer was reinstalled or its data cleared), so it can't be updated.",
-            ) { doCarCopy(e, uninstallFirst = true) }
+            ) { doCarCopy(e, uninstallFirst = true, install = true) }
         } else {
-            doCarCopy(e, uninstallFirst = false)
+            doCarCopy(e, uninstallFirst = false, install = true)
         }
     }
 
-    private fun doCarCopy(e: AppEntry, uninstallFirst: Boolean) {
-        val opts = CarOptions(keepMedia, fillScreen)
+    private fun doCarCopy(e: AppEntry, uninstallFirst: Boolean, install: Boolean) {
+        val opts = options()
         val carPkg = PatchPipeline.carPackageName(e.pkg)
         val carLabel = "${e.label}${PatchPipeline.CAR_LABEL_SUFFIX}"
         run(
             "Car copy of ${e.label}", loadIcon(e.info), carPkg,
-            retry = if (uninstallFirst) null else ({ doCarCopy(e, uninstallFirst = true) }),
-        ) { sh, j ->
+            retry = if (uninstallFirst || !install) null else ({ doCarCopy(e, uninstallFirst = true, install = true) }),
+        ) { shell, j ->
             step(j, "Building $carLabel")
             val files = pipeline(j).carCopy(e.info, opts)
+            keepExport(j, files, "${e.label}-car-copy")
+            if (!install) return@run null
+            val sh = shell.value
             if (uninstallFirst && isInstalled(carPkg)) {
                 step(j, "Uninstalling the old $carLabel")
                 Installer.uninstall(sh, carPkg) { log(j, it) }
@@ -322,19 +349,64 @@ class AppModel(app: Application) : AndroidViewModel(app) {
         if (job?.state != JobState.RUNNING) job = null
     }
 
+    /** Copies the signed result to files/exports: one .apk, or an .apks bundle if the splits weren't merged. */
+    private fun keepExport(j: Job, files: List<File>, baseName: String) {
+        val dir = ExportProvider.dir(ctx)
+        dir.listFiles()?.forEach { it.delete() }
+        val safe = baseName.replace(Regex("[^A-Za-z0-9._ ()-]"), "_").trim().ifEmpty { "app-car" }
+        val out = if (files.size == 1) {
+            File(dir, "$safe.apk").also { files[0].copyTo(it, overwrite = true) }
+        } else {
+            File(dir, "$safe.apks").also { zip ->
+                java.util.zip.ZipOutputStream(zip.outputStream().buffered()).use { z ->
+                    for (f in files) {
+                        z.putNextEntry(java.util.zip.ZipEntry(f.name))
+                        f.inputStream().use { it.copyTo(z) }
+                        z.closeEntry()
+                    }
+                }
+            }
+        }
+        log(j, "Kept ${out.name} (${Installer.human(out.length())}) to save or share")
+        post { j.export = out }
+    }
+
+    /** Copies the last export to a location the user picked. */
+    fun saveExport(target: Uri, done: (Boolean) -> Unit) {
+        val f = job?.export ?: return
+        bg.execute {
+            val ok = try {
+                ctx.contentResolver.openOutputStream(target)?.use { out -> f.inputStream().use { it.copyTo(out) } } != null
+            } catch (e: Exception) {
+                false
+            }
+            post { done(ok) }
+        }
+    }
+
     private fun pipeline(j: Job) = PatchPipeline(ctx) { log(j, "  $it") }
 
-    private fun run(title: String, icon: ImageBitmap?, pkg: String, retry: (() -> Unit)?, work: (Shell, Job) -> String) {
+    /** [work] returns the installed package to verify, or null when the result was only kept for saving. */
+    private fun run(title: String, icon: ImageBitmap?, pkg: String, retry: (() -> Unit)?, work: (Lazy<Shell>, Job) -> String?) {
         if (job?.state == JobState.RUNNING || loading) return
         val j = Job(title, icon)
         job = j
         history.add("\n=== $title ===")
         bg.execute {
             try {
-                step(j, "Getting shell access")
-                val sh = obtainShell(j)
-                log(j, "Using ${sh.name()}")
-                val installed = work(sh, j)
+                val shell = lazy {
+                    step(j, "Getting shell access")
+                    obtainShell(j).also { log(j, "Using ${it.name()}") }
+                }
+                val installed = work(shell, j)
+                if (installed == null) {
+                    post {
+                        j.state = JobState.SUCCESS
+                        j.step = "Ready to save"
+                        j.message = "Save the APK or share it. Uninstall the original app before installing it, because it is signed with a different key."
+                    }
+                    return@execute
+                }
                 val inst = Installer.installerOf(ctx, installed)
                 val ok = inst == Installer.PLAY_STORE
                 log(j, if (ok) "✅ Installer is now $inst" else "⚠️ Installer reads as $inst")

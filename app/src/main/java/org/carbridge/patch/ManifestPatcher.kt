@@ -33,6 +33,7 @@ class ManifestPatcher(private val log: (String) -> Unit) {
         val app = manifest.applicationElement ?: error("manifest has no <application>")
 
         CarPatch.apply(ArscHost(apk, manifest, app), options)
+        ParkedExtras.apply(manifest, log)
         if (branding != null) applyBranding(apk, app, branding)
         if (newPackage != null) renamePackage(apk, manifest, newPackage)
         apk.refreshManifest()

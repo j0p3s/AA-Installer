@@ -39,6 +39,7 @@ interface Actions {
     fun openDeveloperOptions()
     fun openUrl(url: String)
     fun launch(pkg: String)
+    fun share(file: java.io.File)
 }
 
 class MainActivity : ComponentActivity(), Actions {
@@ -163,6 +164,20 @@ class MainActivity : ComponentActivity(), Actions {
     override fun launch(pkg: String) {
         val i = packageManager.getLaunchIntentForPackage(pkg)
         if (i != null) startActivity(i) else openAppInfo(pkg)
+    }
+
+    override fun share(file: java.io.File) {
+        val uri = ExportProvider.uriFor(this, file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(ExportProvider.mimeFor(file.name))
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        send.clipData = android.content.ClipData.newRawUri(file.name, uri)
+        try {
+            startActivity(Intent.createChooser(send, "Share ${file.name}").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        } catch (_: Exception) {
+            toast("No app can receive the file")
+        }
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()

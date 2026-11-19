@@ -10,4 +10,12 @@ Copyright its authors, licensed under GPL-3.0:
 Changes: PatchPipeline can patch a picked APK in place; signer alias/subject renamed;
 installs go through AA Installer's Shizuku/root session.
 
+This product also includes code ported from Android Auto Maker
+(https://github.com/malebuffy/AndroidAutoMaker, commit 9b83522),
+licensed under GPL-3.0, "parked game" mode only:
+  app/src/main/java/org/carbridge/patch/SplitMerger.kt
+  app/src/main/java/org/carbridge/patch/ParkedExtras.kt
+  parked-only rules in app/src/main/java/org/carbridge/core/CarPatch.kt
+Android Auto Maker's navigation / "while driving" mode is intentionally not included.
+
 Dependencies: Shizuku API (Apache-2.0), ARSCLib (Apache-2.0), apksig (Apache-2.0).

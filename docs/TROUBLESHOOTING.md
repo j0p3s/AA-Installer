@@ -42,6 +42,8 @@ Open AA Installer again. A dialog shows the saved crash report. Since v1.3.1 thi
 
 - **Copy won't update ("signed with an older key")**: AA Installer was reinstalled or its data cleared, so the signing key changed. Tapping the app offers to replace the copy (its data is lost).
 - **Copy opens but crashes or says it isn't genuine**: the app checks Play Integrity or its own signature, so it can't run as a re-signed copy.
+- **Car copy shows "can't be used while driving"**: this is expected. Car apps are parked-only.
+- **A car-patched app crashes on start or misses images/strings**: rebuild it with **Single APK** off, so the split APKs are kept as they are.
 - **A screen looks broken on the car display**: rebuild the copy with **Fill the car screen** off.
 - **Music app shows Android Auto's player instead of the full app**: rebuild with **Keep media services** off, or the other way round.
 

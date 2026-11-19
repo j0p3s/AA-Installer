@@ -350,7 +350,7 @@ public final class Installer {
         while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
     }
 
-    static String human(long b) {
+    public static String human(long b) {
         if (b < 1024) return b + " B";
         if (b < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", b / 1024.0);
         return String.format(Locale.ROOT, "%.1f MB", b / (1024.0 * 1024));

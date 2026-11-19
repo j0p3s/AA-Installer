@@ -22,7 +22,7 @@ adb install -r -i com.android.vending app.apk
 
 Android Auto only shows apps whose installer is the Play Store. Apps you sideload are recorded as installed by your file manager or browser, so Android Auto hides them, even when they fully support Android Auto. AA Installer installs them with the Play Store as the installer, through **[Shizuku](https://github.com/RikkaApps/Shizuku)** (no root) or **root**.
 
-It also includes the **[CarBridge](https://github.com/jmwerk/CarBridge)** car patch, which puts any app's full interface on the Android Auto screen. It's meant for use while parked.
+It also includes a **parked-only car patch** (from [CarBridge](https://github.com/jmwerk/CarBridge) and [Android Auto Maker](https://github.com/malebuffy/AndroidAutoMaker)), which puts any app's full interface on the Android Auto screen while the car is parked.
 
 ![Screens](docs/screens.png)
 
@@ -34,6 +34,7 @@ It also includes the **[CarBridge](https://github.com/jmwerk/CarBridge)** car pa
 | **Safe updates** | Checks the signature and version before updating an installed app. If Android can't update it, AA Installer offers to **uninstall the old version and install the new one**, and explains that the app's data will be lost. |
 | **Car copy** | Builds "*App* (Car)", a renamed `<package>.car` copy of any installed app that Android Auto lists and shows full screen. The original app is untouched. |
 | **Car-enable before installing** | Applies the car patch to an APK you pick and keeps its package name, like CarBridge Patches for Morphe. |
+| **Save & share** | Keep a car-patched app as one APK. **Save** it anywhere or **Share** it, with or without installing. Split APKs are merged into a single APK. |
 | **Fix apps** | Lists your Android Auto apps. Any that weren't installed by the Play Store can be re-registered without uninstalling or losing data. |
 | **Setup** | A checklist for Shizuku, Android Auto developer mode, battery settings and RedMagic/nubia USB installs, with buttons that open each settings screen. |
 | **Crash reports** | If the app ever crashes, the next launch shows the report so you can copy it into an issue. |
@@ -71,7 +72,8 @@ The full walkthrough is in the **[User guide](docs/USER_GUIDE.md)**.
 ## Good to know
 
 - **It can't add Android Auto support** to an app that doesn't have it. For that, use the car patch.
-- **Navigation apps** that Google checks by signature (for example a modded Waze) may still be hidden even with the Play Store as installer. A **car copy** gets a new package name, so that check doesn't apply. It runs the full app rather than Android Auto's navigation view.
+- **Navigation apps** that Google checks by signature (for example a modded Waze) may still be hidden even with the Play Store as installer. A **car copy** gets a new package name, so that check doesn't apply, but it runs as a **parked-only** app, not as Android Auto navigation.
+- **Car apps are parked-only by design.** AA Installer does not and will not make apps usable on the car screen while driving.
 - **Car-patched apps are re-signed** with a key created on your phone. Apps that check Play Integrity, their own signature or a license won't work after patching.
 - **Replacing an app signed with another key means uninstalling it first**, which deletes its data. AA Installer always asks before doing this.
 - Whether an app appears can still depend on the Android Auto version, the car and Google's rules.
@@ -93,6 +95,7 @@ Release builds are signed when these environment variables are set: `AAI_KEYSTOR
 ## Credits
 
 - **[CarBridge](https://github.com/jmwerk/CarBridge)** by jmwerk (GPL-3.0): the car patch rules and pipeline (`org.carbridge.*`). CarBridge credits its car-visibility entries to AABrowser (GPL-3.0).
+- **[Android Auto Maker](https://github.com/malebuffy/AndroidAutoMaker)** by malebuffy (GPL-3.0): split-APK merging and the parked-game manifest rules (`SplitMerger`, `ParkedExtras`). Only the parked mode is used.
 - **[Shizuku](https://github.com/RikkaApps/Shizuku)** by RikkaApps (Apache-2.0): shell access without root.
 - **[ARSCLib](https://github.com/REAndroid/ARSCLib)** (Apache-2.0) and Google's **apksig** (Apache-2.0): APK editing and signing.
 
