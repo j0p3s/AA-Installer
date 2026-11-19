@@ -1,0 +1,13 @@
+AA Installer
+Copyright (C) 2026 j0p3s
+Licensed under the GNU General Public License v3.0 (see LICENSE).
+
+This product includes code ported from CarBridge
+(https://github.com/jmwerk/CarBridge, commit 8fea8364c4d24cf8fa9b26445f4b46598e744c10),
+Copyright its authors, licensed under GPL-3.0:
+  app/src/main/java/org/carbridge/core/*
+  app/src/main/java/org/carbridge/patch/*
+Changes: PatchPipeline can patch a picked APK in place; signer alias/subject renamed;
+installs go through AA Installer's Shizuku/root session.
+
+Dependencies: Shizuku API (Apache-2.0), ARSCLib (Apache-2.0), apksig (Apache-2.0).

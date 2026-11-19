@@ -248,7 +248,7 @@ public final class Installer {
 
     static String explain(String out) {
         if (out.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE"))
-            return "Signature differs from the installed version. Uninstall the old app first.";
+            return "Signature differs from the installed version (a car-enabled APK is re-signed on this phone). Uninstall the installed app first, then try again.";
         if (out.contains("INSTALL_FAILED_VERSION_DOWNGRADE"))
             return "A newer version is already installed. Uninstall it first.";
         if (out.contains("INSTALL_FAILED_NO_MATCHING_ABIS"))

@@ -21,17 +21,23 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.carbridge.core.CarOptions;
+import org.carbridge.patch.PatchPipeline;
+
+import kotlin.Unit;
 import rikka.shizuku.Shizuku;
 
 public class MainActivity extends Activity {
@@ -45,7 +51,8 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
 
     private TextView status, info, log;
-    private Button shizukuBtn, installBtn, pickBtn, fixBtn;
+    private Button shizukuBtn, installBtn, pickBtn, fixBtn, carCopyBtn;
+    private CheckBox carEnable, keepMedia, fillScreen;
     private ScrollView scroll;
     private Installer.Package picked;
     private boolean busy;
@@ -144,13 +151,25 @@ public class MainActivity extends Activity {
         pickBtn = button(root, "Select APK / APKS / XAPK / APKM", v -> pick());
         info = card(root);
         info.setText("No file selected.");
+        carEnable = check(root, "Car-enable it first (CarBridge patch: full app on the car screen; re-signs the APK)", false);
         installBtn = button(root, "Install as Play Store app", v -> install());
         installBtn.setEnabled(false);
 
         section(root, "2. Fix an app that is already installed");
         fixBtn = button(root, "Choose installed app…", v -> chooseInstalled());
 
-        section(root, "3. Android Auto setup");
+        section(root, "3. Car copy of any installed app (CarBridge)");
+        TextView carInfo = new TextView(this);
+        carInfo.setText("Makes \"App (Car)\", a renamed copy that Android Auto lists and shows full-screen on the car display (meant for use while parked). The original app stays untouched. The copy starts with empty data.");
+        carInfo.setPadding(0, 0, 0, dp(4));
+        root.addView(carInfo);
+        carCopyBtn = button(root, "Make car copy…", v -> chooseForCarCopy());
+
+        section(root, "Car patch options");
+        fillScreen = check(root, "Fill the car screen (remove portrait-only locks)", true);
+        keepMedia = check(root, "Keep media services (music apps keep Android Auto's audio player instead of the full app)", false);
+
+        section(root, "4. Android Auto setup");
         button(root, "Open Android Auto settings", v -> openAndroidAuto());
         button(root, "Android Auto app info (battery → Unrestricted)", v -> openAppInfo(AA_PKG));
 
@@ -195,6 +214,26 @@ public class MainActivity extends Activity {
         return b;
     }
 
+    private CheckBox check(LinearLayout root, String text, boolean on) {
+        CheckBox c = new CheckBox(this);
+        c.setText(text);
+        c.setChecked(on);
+        c.setPadding(c.getPaddingLeft(), dp(6), c.getPaddingRight(), dp(6));
+        root.addView(c, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return c;
+    }
+
+    private CarOptions carOptions() {
+        return new CarOptions(keepMedia.isChecked(), fillScreen.isChecked());
+    }
+
+    private PatchPipeline pipeline() {
+        return new PatchPipeline(this, s -> {
+            logLine("  " + s);
+            return Unit.INSTANCE;
+        });
+    }
+
     private void logLine(String s) {
         if (s == null || s.isEmpty()) return;
         ui.post(() -> {
@@ -207,6 +246,7 @@ public class MainActivity extends Activity {
         busy = b;
         pickBtn.setEnabled(!b);
         fixBtn.setEnabled(!b);
+        carCopyBtn.setEnabled(!b);
         installBtn.setEnabled(!b && picked != null);
     }
 
@@ -328,15 +368,26 @@ public class MainActivity extends Activity {
     private void install() {
         if (picked == null || busy) return;
         Installer.Package p = picked;
+        boolean car = carEnable.isChecked();
+        CarOptions opts = carOptions();
         setBusy(true);
-        logLine("\n=== Installing " + p.label + " ===");
+        logLine("\n=== Installing " + p.label + (car ? " (car-enabled)" : "") + " ===");
         bg.execute(() -> {
             try {
                 Shell sh = obtainShell();
                 logLine("Using " + sh.name());
-                Installer.install(sh, p.apks, this::logLine);
+                List<File> files = p.apks;
+                if (car) {
+                    logLine("Applying CarBridge car patch…");
+                    List<File> splits = new ArrayList<>(p.apks);
+                    splits.remove(p.base);
+                    files = pipeline().inPlace(p.base, splits, opts);
+                }
+                Installer.install(sh, files, this::logLine);
+                if (car) PatchPipeline.clearWork(this);
                 done(p.packageName, p.label);
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                PatchPipeline.clearWork(this);
                 fail(e);
             }
         });
@@ -416,7 +467,56 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void fail(Exception e) {
+    private void chooseForCarCopy() {
+        if (busy) return;
+        PackageManager pm = getPackageManager();
+        List<ApplicationInfo> apps = new ArrayList<>();
+        try {
+            for (ApplicationInfo ai : pm.getInstalledApplications(0)) {
+                if (ai.packageName.equals(getPackageName()) || ai.packageName.endsWith(".car")) continue;
+                if (pm.getLaunchIntentForPackage(ai.packageName) == null) continue;
+                apps.add(ai);
+            }
+        } catch (Exception e) {
+            toast("Cannot list apps: " + e.getMessage());
+            return;
+        }
+        Collections.sort(apps, (a, b) -> String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));
+        String[] items = new String[apps.size()];
+        for (int i = 0; i < apps.size(); i++) {
+            ApplicationInfo ai = apps.get(i);
+            boolean has = isInstalled(PatchPipeline.carPackageName(ai.packageName));
+            items[i] = (has ? "🚗 " : "") + ai.loadLabel(pm) + "\n" + ai.packageName + (has ? "\n(car copy installed: tap to rebuild)" : "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Make a car copy of…")
+                .setItems(items, (d, which) -> carCopy(apps.get(which)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void carCopy(ApplicationInfo ai) {
+        String label = String.valueOf(ai.loadLabel(getPackageManager()));
+        String carPkg = PatchPipeline.carPackageName(ai.packageName);
+        CarOptions opts = carOptions();
+        setBusy(true);
+        logLine("\n=== Car copy of " + label + " → " + carPkg + " ===");
+        bg.execute(() -> {
+            try {
+                Shell sh = obtainShell();
+                logLine("Using " + sh.name());
+                List<File> files = pipeline().carCopy(ai, opts);
+                Installer.install(sh, files, this::logLine);
+                PatchPipeline.clearWork(this);
+                done(carPkg, label + PatchPipeline.CAR_LABEL_SUFFIX);
+            } catch (Throwable e) {
+                PatchPipeline.clearWork(this);
+                fail(e);
+            }
+        });
+    }
+
+    private void fail(Throwable e) {
         String msg = e.getMessage() == null ? e.toString() : e.getMessage();
         logLine("❌ " + msg);
         ui.post(() -> {
