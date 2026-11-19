@@ -110,20 +110,29 @@ class MainActivity : ComponentActivity(), Actions {
             toast("Android Auto is not installed")
             return
         }
-        val components = listOf(
+        // The official entry point: the same intent as "Additional settings in the app" on App info
+        val prefs = Intent(Intent.ACTION_APPLICATION_PREFERENCES).setPackage(AA_PKG)
+        if (prefs.resolveActivity(packageManager) != null) {
+            try {
+                startActivity(prefs)
+                toast("Scroll down, tap 'Version' 10×, then ⋮ → Developer settings → Unknown sources")
+                return
+            } catch (_: Exception) {
+            }
+        }
+        // Older Android Auto builds
+        for (c in listOf(
             "$AA_PKG/com.google.android.apps.auto.carservice.service.impl.CarServiceSettingsActivity",
             "$AA_PKG/com.google.android.projection.gearhead.companion.settings.SettingsActivity",
-        )
-        for (c in components) {
+        )) {
             try {
                 startActivity(Intent(Intent.ACTION_MAIN).setComponent(ComponentName.unflattenFromString(c)))
-                toast("Tap 'Version' 10× → ⋮ → Developer settings → Unknown sources")
                 return
             } catch (_: Exception) {
             }
         }
         packageManager.getLaunchIntentForPackage(AA_PKG)?.let { startActivity(it); return }
-        toast("Open Settings → Connected devices → Android Auto")
+        toast("Tap 'Additional settings in the app' to open Android Auto's settings")
         openAppInfo(AA_PKG)
     }
 

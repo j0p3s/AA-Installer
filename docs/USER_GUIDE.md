@@ -1,6 +1,6 @@
 # AA Installer user guide
 
-This guide covers AA Installer v1.3.0 and later.
+This guide covers AA Installer v1.3.2 and later.
 
 - [1. What you need](#1-what-you-need)
 - [2. Set up Shizuku (no root)](#2-set-up-shizuku-no-root)

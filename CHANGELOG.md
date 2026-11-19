@@ -2,6 +2,11 @@
 
 All notable changes to AA Installer. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-11-19
+
+### Fixed
+- **Open Android Auto** / **Android Auto settings** opened Android's App info page instead of Android Auto's own settings. It now uses `ACTION_APPLICATION_PREFERENCES`, the same entry point as *Additional settings in the app* on App info.
+
 ## [1.3.1] - 2026-11-19
 
 ### Fixed
@@ -57,6 +62,7 @@ All notable changes to AA Installer. Format based on [Keep a Changelog](https://
 - Open or share an APK from a file manager.
 - Clear explanations for common install errors, including RedMagic/nubia `INSTALL_FAILED_USER_RESTRICTED`.
 
+[1.3.2]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.2
 [1.3.1]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.1
 [1.3.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.0
 [1.2.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.2.0
