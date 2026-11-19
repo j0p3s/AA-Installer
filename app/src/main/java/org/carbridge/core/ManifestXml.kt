@@ -1,6 +1,7 @@
 /*
  * Ported from CarBridge (https://github.com/jmwerk/CarBridge, commit 8fea836), GPL-3.0.
  * Used in AA Installer under the same licence.
+ * SPDX-License-Identifier: GPL-3.0-only
  */
 package org.carbridge.core
 

@@ -1,88 +1,105 @@
+<div align="center">
+
+<img src="docs/icon.png" width="96" alt="AA Installer icon">
+
 # AA Installer
 
-Install Android Auto apps from APK files **directly on your phone**, registered as if they came from the **Google Play Store**, so Android Auto shows them.
+**Install Android Auto apps as if they came from the Google Play Store, right on your phone.**
 
-It does the same thing as this PC command, but without a PC:
+[![Release](https://img.shields.io/github/v/release/j0p3s/AA-Installer?label=release)](https://github.com/j0p3s/AA-Installer/releases/latest)
+[![Build](https://github.com/j0p3s/AA-Installer/actions/workflows/build.yml/badge.svg)](https://github.com/j0p3s/AA-Installer/actions/workflows/build.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
+![Target](https://img.shields.io/badge/target-Android%2016-3DDC84)
+
+</div>
+
+AA Installer does on your phone what this PC command does:
 
 ```
 adb install -r -i com.android.vending app.apk
 ```
 
-It also includes the **[CarBridge](https://github.com/jmwerk/CarBridge)** car patch, which puts an app's **full interface on the Android Auto screen** (intended for use while parked), either as a separate "App (Car)" copy or patched into an APK before installing.
+Android Auto only shows apps whose installer is the Play Store. Apps you sideload are recorded as installed by your file manager or browser, so Android Auto hides them, even when they fully support Android Auto. AA Installer installs them with the Play Store as the installer, through **[Shizuku](https://github.com/RikkaApps/Shizuku)** (no root) or **root**.
 
-Built for Android 16 (targets SDK 36). Works on Android 8.0 and newer.
+It also includes the **[CarBridge](https://github.com/jmwerk/CarBridge)** car patch, which puts any app's full interface on the Android Auto screen. It's meant for use while parked.
 
 ![Screens](docs/screens.png)
 
-## Why this is needed
-
-Android Auto only lists apps whose *installer of record* is the Play Store. Apps you sideload are recorded as installed by your file manager or browser, so Android Auto hides them, even when they fully support Android Auto.
-
-Only privileged installers (adb/shell or root) can set a different installer. AA Installer gets that privilege through **[Shizuku](https://github.com/RikkaApps/Shizuku)** (no root needed) or through **root**, and then runs the same `pm install-create / install-write / install-commit` session that `adb install` uses.
-
 ## Features
 
-- **Car copy of any installed app** (CarBridge): builds a renamed `<package>.car` copy with a badged icon. Android Auto lists it and shows the app's full interface. The original is untouched.
-- **Car-enable an APK before installing** (like CarBridge Patches for Morphe): same package name, so it replaces the app
-- Car options: *Fill the car screen* (removes portrait-only locks) and *Keep media services* (music apps keep Android Auto's audio player)
-- Install **APK**, **APKS**, **XAPK** and **APKM** (split APKs; parts for other CPU architectures are skipped)
-- Shows the app name, package, version and whether it **declares Android Auto support**
-- **Fix installed apps**: re-registers an already installed Android Auto app as a Play Store install, with no uninstall and no data loss
-- Checks the result after installing (reads the installer back from Android)
-- "Open with" / "Share" an APK straight from your file manager
-- Shortcuts to the Android Auto settings and its battery settings
-- No internet permission, no ads, no tracking
+| | |
+|---|---|
+| **Install** | APK, APKS, XAPK and APKM (split APKs; parts for other CPU architectures are skipped). Shows the app's icon and version, and whether it supports Android Auto. Open or share an APK straight from your file manager. |
+| **Safe updates** | Checks the signature and version before updating an installed app. If Android can't update it, AA Installer offers to **uninstall the old version and install the new one**, and explains that the app's data will be lost. |
+| **Car copy** | Builds "*App* (Car)", a renamed `<package>.car` copy of any installed app that Android Auto lists and shows full screen. The original app is untouched. |
+| **Car-enable before installing** | Applies the car patch to an APK you pick and keeps its package name, like CarBridge Patches for Morphe. |
+| **Fix apps** | Lists your Android Auto apps. Any that weren't installed by the Play Store can be re-registered without uninstalling or losing data. |
+| **Setup** | A checklist for Shizuku, Android Auto developer mode, battery settings and RedMagic/nubia USB installs, with buttons that open each settings screen. |
+| **Crash reports** | If the app ever crashes, the next launch shows the report so you can copy it into an issue. |
+| **Privacy** | No internet permission, no ads, no tracking, no accounts. |
 
-## Setup (Shizuku, no root)
+## Download
 
-1. Install **Shizuku** ([GitHub](https://github.com/RikkaApps/Shizuku/releases) or Play Store).
-2. Enable **Developer options** → **Wireless debugging**, then start Shizuku with the *Pairing* option (Shizuku walks you through it).
-3. Open **AA Installer** and tap **Allow Shizuku access**.
+Get the latest APK from **[Releases](https://github.com/j0p3s/AA-Installer/releases/latest)**.
 
-On a rooted phone, skip Shizuku. AA Installer falls back to `su` automatically.
+Signing certificate SHA-256, to check with [AppVerifier](https://github.com/soupslurpr/AppVerifier):
 
-> **RedMagic / nubia:** if installing fails with `INSTALL_FAILED_USER_RESTRICTED`, enable **Install via USB** (and **USB debugging (Security settings)** if your ROM has it) in Developer options.
+```
+io.github.j0p3s.aainstaller
+5E:FA:6B:83:CC:9A:A8:8F:92:E8:F3:0B:21:6C:51:00:1E:B0:B6:9C:40:E2:A9:4B:E9:57:2D:83:4E:3A:DB:92
+```
 
-## Usage
+## Quick start
 
-1. **Select APK / APKS / XAPK / APKM** and check the Android Auto line.
-2. Tap **Install as Play Store app**.
-3. In Android Auto, open the settings, tap the **version number 10×** to unlock developer settings, open the ⋮ menu → **Developer settings** → enable **Unknown sources**.
-4. Reconnect to the car (or restart Android Auto).
+1. Install **Shizuku** and start it with **Wireless debugging**. If your phone is rooted, skip this step.
+2. Open **AA Installer** and tap **Allow** on the Shizuku banner.
+3. **Install** tab: choose the APK, then tap **Install as Play Store app**.
+4. In Android Auto: **Settings → tap Version 10× → ⋮ → Developer settings → Unknown sources** on.
+5. Reconnect to the car.
 
-Already installed the app another way? Use **Choose installed app…** under *Fix an app that is already installed*.
+The full walkthrough is in the **[User guide](docs/USER_GUIDE.md)**.
 
-Tip: set Android Auto's battery usage to **Unrestricted** so the phone's power manager doesn't kill it.
+## Documentation
 
-## Car patch (CarBridge)
+- 📖 [User guide](docs/USER_GUIDE.md): setup, every screen, and the car patch
+- 🛠️ [Troubleshooting](docs/TROUBLESHOOTING.md): error messages and what to do about them
+- ⚙️ [How it works](docs/HOW_IT_WORKS.md): Shizuku, `pm` install sessions, the car patch, signing
+- 📝 [Changelog](CHANGELOG.md)
+- 🤝 [Contributing](CONTRIBUTING.md) · 🔒 [Security](SECURITY.md)
 
-- **Make car copy…** picks any installed app and builds "*App* (Car)". The copy has its own data, so you sign in again.
-- **Car-enable it first** (section 1) patches the APK you picked and keeps its package name. Patched APKs are re-signed with a key created on your phone, so if the app is already installed with another signature, uninstall it first.
-- The signing key lives in the Android Keystore. If you uninstall AA Installer or clear its data, uninstall existing car copies before rebuilding them.
-- Apps that check Play Integrity, their own signature or a license will not work after re-signing.
-- Apps that use the car-app template service, and media apps unless *Keep media services* is on, lose Android Auto's own template UI in favour of the full app.
+## Good to know
 
-## Limitations
-
-- It cannot add Android Auto support to an app that doesn't have it.
-- APKs are not modified and keep their original signatures. An update must be signed with the same key as the installed version.
-- Whether an app appears can still depend on the Android Auto version, the car and Google's server-side rules.
-- Only install APKs from sources you trust.
-
-## Credits and license
-
-AA Installer is licensed under the **GNU GPL v3.0** (see `LICENSE`).
-
-The car patch (`org.carbridge.core` and `org.carbridge.patch`) is ported from [CarBridge](https://github.com/jmwerk/CarBridge) by jmwerk (GPL-3.0, commit `8fea836`). It uses [ARSCLib](https://github.com/REAndroid/ARSCLib) and Google's `apksig`. CarBridge credits its car-visibility entries to AABrowser (GPL-3.0). Installs run through [Shizuku](https://github.com/RikkaApps/Shizuku).
+- **It can't add Android Auto support** to an app that doesn't have it. For that, use the car patch.
+- **Navigation apps** that Google checks by signature (for example a modded Waze) may still be hidden even with the Play Store as installer. A **car copy** gets a new package name, so that check doesn't apply. It runs the full app rather than Android Auto's navigation view.
+- **Car-patched apps are re-signed** with a key created on your phone. Apps that check Play Integrity, their own signature or a license won't work after patching.
+- **Replacing an app signed with another key means uninstalling it first**, which deletes its data. AA Installer always asks before doing this.
+- Whether an app appears can still depend on the Android Auto version, the car and Google's rules.
+- Only install APKs from sources you trust. **Never use your phone while driving.**
 
 ## Building
 
+Requirements: JDK 17+, Android SDK 36.
+
+```bash
+git clone https://github.com/j0p3s/AA-Installer
+cd AA-Installer
+./gradlew assembleDebug          # app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest      # car-patch pipeline + screenshot tests (PNGs in /tmp/shots)
 ```
-./gradlew assembleRelease
-```
 
-Release signing reads `AAI_KEYSTORE`, `AAI_KS_PASS`, `AAI_KEY_ALIAS` and `AAI_KEY_PASS` from the environment.
+Release builds are signed when these environment variables are set: `AAI_KEYSTORE`, `AAI_KS_PASS`, `AAI_KEY_ALIAS`, `AAI_KEY_PASS`.
 
-## Disclaimer
+## Credits
 
-Not affiliated with Google, Android Auto or any app vendor. Never interact with your phone while driving.
+- **[CarBridge](https://github.com/jmwerk/CarBridge)** by jmwerk (GPL-3.0): the car patch rules and pipeline (`org.carbridge.*`). CarBridge credits its car-visibility entries to AABrowser (GPL-3.0).
+- **[Shizuku](https://github.com/RikkaApps/Shizuku)** by RikkaApps (Apache-2.0): shell access without root.
+- **[ARSCLib](https://github.com/REAndroid/ARSCLib)** (Apache-2.0) and Google's **apksig** (Apache-2.0): APK editing and signing.
+
+## License
+
+Copyright © 2026 j0p3s
+
+AA Installer is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License, version 3**, as published by the Free Software Foundation. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+AA Installer is not affiliated with Google, Android Auto, Shizuku, CarBridge or any app vendor. Android and Android Auto are trademarks of Google LLC.

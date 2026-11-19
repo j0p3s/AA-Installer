@@ -1,3 +1,21 @@
+/*
+ * AA Installer - install Android Auto apps as Play Store apps
+ * Copyright (C) 2026 j0p3s
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.github.j0p3s.aainstaller
 
 import android.os.Build
@@ -44,6 +62,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -189,6 +208,8 @@ fun AppRoot(vm: AppModel, actions: Actions) {
     }
 
     vm.job?.let { JobSheet(it, vm, actions) }
+    vm.askUninstall?.let { UninstallDialog(it, vm) }
+    vm.lastCrash?.let { CrashDialog(it, vm) }
     if (showHistory) HistorySheet(vm.history) { showHistory = false }
 }
 
@@ -426,6 +447,10 @@ private fun InstallScreen(vm: AppModel, actions: Actions) {
                     enabled = !vm.busy,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                 ) {
+                    if (vm.checking) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                        Spacer(Modifier.width(12.dp))
+                    }
                     Text(if (vm.pickedInstaller != null) "Update as Play Store app" else "Install as Play Store app", fontSize = 16.sp)
                 }
                 TextButton(onClick = pick, modifier = Modifier.fillMaxWidth()) { Text("Choose another file") }
@@ -737,6 +762,14 @@ private fun JobSheet(job: Job, vm: AppModel, actions: Actions) {
             }
             Spacer(Modifier.height(12.dp))
             if (running) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (job.retryWithUninstall != null) {
+                Text(
+                    "Uninstalling removes the installed app and its data, then installs this one.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
             if (job.message.isNotEmpty()) {
                 Text(
                     job.message,
@@ -749,11 +782,22 @@ private fun JobSheet(job: Job, vm: AppModel, actions: Actions) {
             Spacer(Modifier.height(16.dp))
             if (!running) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    job.retryWithUninstall?.let { retry ->
+                        Button(
+                            onClick = retry,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
+                        ) { Text("Uninstall & retry") }
+                        Spacer(Modifier.width(8.dp))
+                    }
                     if (job.state != JobState.FAILED) {
                         TextButton(onClick = { vm.dismissJob(); actions.openAndroidAuto() }) { Text("Android Auto settings") }
                     }
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = vm::dismissJob) { Text("Done") }
+                    if (job.retryWithUninstall != null) TextButton(onClick = vm::dismissJob) { Text("Close") }
+                    else Button(onClick = vm::dismissJob) { Text("Done") }
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -786,4 +830,55 @@ private fun LogBox(lines: List<String>, modifier: Modifier) {
             }
         }
     }
+}
+
+// ================================================================= dialogs
+
+@Composable
+private fun UninstallDialog(ask: UninstallAsk, vm: AppModel) {
+    AlertDialog(
+        onDismissRequest = vm::cancelUninstall,
+        icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("Uninstall ${ask.label} first?") },
+        text = {
+            Text(
+                ask.reason + "\n\nAA Installer can uninstall the installed app and then install the new one. " +
+                    "Its data (sign-in, settings, downloads) will be lost.",
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = vm::confirmUninstall,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) { Text("Uninstall & install") }
+        },
+        dismissButton = { TextButton(onClick = vm::cancelUninstall) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun CrashDialog(text: String, vm: AppModel) {
+    val clipboard = LocalContext.current.getSystemService(android.content.ClipboardManager::class.java)
+    AlertDialog(
+        onDismissRequest = vm::clearCrash,
+        icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("AA Installer crashed last time") },
+        text = {
+            Column {
+                Text("Copy this report and send it so the problem can be fixed.", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                LogBox(text.lines(), Modifier.fillMaxWidth().heightIn(max = 320.dp))
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("AA Installer crash", text))
+                vm.clearCrash()
+            }) { Text("Copy & close") }
+        },
+        dismissButton = { TextButton(onClick = vm::clearCrash) { Text("Close") } },
+    )
 }

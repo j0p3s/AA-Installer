@@ -1,3 +1,21 @@
+/*
+ * AA Installer - install Android Auto apps as Play Store apps
+ * Copyright (C) 2026 j0p3s
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.github.j0p3s.aainstaller
 
 import android.app.Application
@@ -102,5 +120,31 @@ class ScreensTest {
         rule.setContent { AppTheme { AppRoot(vm, noop) } }
         rule.waitForIdle()
         shot("6_progress_sheet")
+    }
+
+    @Test fun uninstall_prompt() {
+        val vm = model()
+        vm.picked = Installer.Package().apply {
+            label = "Waze"; packageName = "com.waze"; version = "5.12.0.2 (1050)"; androidAuto = true
+            apks.add(File("base.apk"))
+        }
+        vm.pickedInstaller = Installer.PLAY_STORE
+        vm.askUninstall = UninstallAsk("Waze", "com.waze",
+            "The installed Waze is signed with a different key than this APK, so Android can't update it.") {}
+        rule.setContent { AppTheme { AppRoot(vm, noop) } }
+        shot("7_uninstall_prompt")
+    }
+
+    @Test fun failed_retry() {
+        val vm = model()
+        vm.job = Job("Installing Waze", null).apply {
+            state = JobState.FAILED; step = "Failed"
+            message = "The installed version is signed with a different key, so Android won't update it. Uninstall the installed app (its data is lost), then install again."
+            retryWithUninstall = {}
+            log.addAll(listOf("▶ Getting shell access", "Using Shizuku (adb)", "▶ Installing as a Play Store app",
+                "$ pm install-commit 1294812", "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package com.waze signatures do not match newer version; ignoring!]"))
+        }
+        rule.setContent { AppTheme { AppRoot(vm, noop) } }
+        shot("8_failed_retry")
     }
 }

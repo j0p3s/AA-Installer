@@ -1,3 +1,21 @@
+/*
+ * AA Installer - install Android Auto apps as Play Store apps
+ * Copyright (C) 2026 j0p3s
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
 package io.github.j0p3s.aainstaller;
 
 import android.content.Context;
@@ -43,6 +61,7 @@ public final class Installer {
         public String label = "?";
         public String packageName = "?";
         public String version = "?";
+        public long versionCode = -1;
         public int targetSdk;
         public boolean androidAuto;
         public android.graphics.drawable.Drawable icon;
@@ -142,7 +161,8 @@ public final class Installer {
         ai.sourceDir = p.base.getAbsolutePath();
         ai.publicSourceDir = p.base.getAbsolutePath();
         p.packageName = info.packageName;
-        p.version = info.versionName + " (" + (Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode) + ")";
+        p.versionCode = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+        p.version = info.versionName + " (" + p.versionCode + ")";
         p.targetSdk = ai.targetSdkVersion;
         try {
             p.icon = ai.loadIcon(pm);
@@ -218,7 +238,11 @@ public final class Installer {
             log.line("$ pm install-commit " + id);
             r = sh.run("pm", "install-commit", id);
             log.line(r.out);
-            if (!r.ok() || !r.out.contains("Success")) throw new IllegalStateException(explain(r.out));
+            if (!r.ok() || !r.out.contains("Success")) {
+                if (r.out.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE") || r.out.contains("INSTALL_FAILED_VERSION_DOWNGRADE"))
+                    throw new NeedsUninstallException(explain(r.out));
+                throw new IllegalStateException(explain(r.out));
+            }
         } catch (Exception e) {
             try {
                 sh.run("pm", "install-abandon", id);
@@ -237,6 +261,52 @@ public final class Installer {
         install(sh, files, log);
     }
 
+    /** The installed app can't be updated by this APK (other signature or a newer version); uninstalling it fixes that. */
+    public static final class NeedsUninstallException extends IllegalStateException {
+        public NeedsUninstallException(String msg) {
+            super(msg);
+        }
+    }
+
+    /** Full uninstall (app and its data) via the shell, like "adb uninstall". */
+    public static void uninstall(Shell sh, String pkg, Log log) throws Exception {
+        log.line("$ pm uninstall " + pkg);
+        Shell.Result r = sh.run("pm", "uninstall", pkg);
+        log.line(r.out);
+        if (!r.out.contains("Success")) throw new IllegalStateException("Could not uninstall " + pkg + ": " + r.out);
+    }
+
+    /**
+     * Whether the APK at {@code apk} is signed like the installed {@code pkg}.
+     * Returns null when it can't tell (not installed, unreadable, Android &lt; 9).
+     */
+    public static Boolean sameSigner(Context ctx, File apk, String pkg) {
+        if (Build.VERSION.SDK_INT < 28) return null;
+        try {
+            PackageManager pm = ctx.getPackageManager();
+            PackageInfo installed = pm.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES);
+            PackageInfo archive = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (installed.signingInfo == null || archive == null || archive.signingInfo == null) return null;
+            android.content.pm.Signature[] a = installed.signingInfo.getApkContentsSigners();
+            android.content.pm.Signature[] b = archive.signingInfo.getApkContentsSigners();
+            if (a == null || b == null || a.length == 0 || b.length == 0) return null;
+            for (android.content.pm.Signature x : a)
+                for (android.content.pm.Signature y : b)
+                    if (x.equals(y)) return true;
+            // Rotated keys: the installed app may be signed by an older key in the archive's lineage
+            if (archive.signingInfo.hasPastSigningCertificates()) {
+                for (android.content.pm.Signature y : archive.signingInfo.getSigningCertificateHistory())
+                    for (android.content.pm.Signature x : a)
+                        if (x.equals(y)) return true;
+            }
+            return false;
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     public static String installerOf(Context ctx, String pkg) {
         try {
             PackageManager pm = ctx.getPackageManager();
@@ -253,9 +323,9 @@ public final class Installer {
 
     static String explain(String out) {
         if (out.contains("INSTALL_FAILED_UPDATE_INCOMPATIBLE"))
-            return "Signature differs from the installed version (a car-enabled APK is re-signed on this phone). Uninstall the installed app first, then try again.";
+            return "The installed version is signed with a different key, so Android won't update it. Uninstall the installed app (its data is lost), then install again.";
         if (out.contains("INSTALL_FAILED_VERSION_DOWNGRADE"))
-            return "A newer version is already installed. Uninstall it first.";
+            return "A newer version is already installed, so Android won't downgrade it. Uninstall it (its data is lost), then install again.";
         if (out.contains("INSTALL_FAILED_NO_MATCHING_ABIS"))
             return "This APK is not built for this phone's CPU.";
         if (out.contains("INSTALL_FAILED_DEPRECATED_SDK_VERSION"))

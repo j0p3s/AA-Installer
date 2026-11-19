@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: User guide
+    url: https://github.com/j0p3s/AA-Installer/blob/main/docs/USER_GUIDE.md
+    about: Setup and how every screen works
+  - name: Troubleshooting
+    url: https://github.com/j0p3s/AA-Installer/blob/main/docs/TROUBLESHOOTING.md
+    about: Error messages and fixes
