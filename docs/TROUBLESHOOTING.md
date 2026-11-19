@@ -33,7 +33,10 @@ Work through these in order:
 
 ## AA Installer itself crashed
 
-Open AA Installer again. A dialog shows the saved crash report. Tap **Copy & close** and paste it into a [bug report](https://github.com/j0p3s/AA-Installer/issues/new?template=bug_report.yml).
+Open AA Installer again. A dialog shows the saved crash report. Since v1.3.1 this includes native crashes and "app not responding" events on Android 11+. Tap **Copy & close** and paste it into a [bug report](https://github.com/j0p3s/AA-Installer/issues/new?template=bug_report.yml).
+
+- **v1.2.0 / v1.3.0 close as soon as you open the Car copy tab** (RedMagic/nubia, Android 16): fixed in **v1.3.1**. Update.
+- For a full native backtrace, take a bug report (Developer options → *Take bug report*) or run `adb logcat -b crash`.
 
 ## Car copies
 

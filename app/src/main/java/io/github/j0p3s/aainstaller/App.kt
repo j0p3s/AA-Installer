@@ -55,9 +55,48 @@ object CrashLog {
         file(ctx).writeText(head + sw.toString().take(16_000))
     }
 
-    fun read(ctx: Context): String? = file(ctx).takeIf { it.exists() }?.readText()
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("crash", Context.MODE_PRIVATE)
+
+    /** A Java crash saved by the handler, or a native crash/ANR that Android recorded since the last check. */
+    fun read(ctx: Context): String? {
+        file(ctx).takeIf { it.exists() }?.readText()?.let { return it }
+        return exitReason(ctx)
+    }
+
+    private fun exitReason(ctx: Context): String? {
+        if (Build.VERSION.SDK_INT < 30) return null
+        return try {
+            val am = ctx.getSystemService(android.app.ActivityManager::class.java)
+            val info = am.getHistoricalProcessExitReasons(ctx.packageName, 0, 5)
+                .firstOrNull { it.reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE || it.reason == android.app.ApplicationExitInfo.REASON_ANR }
+                ?: return null
+            val seen = prefs(ctx).getLong("seen", 0L)
+            if (info.timestamp <= seen) return null
+            prefs(ctx).edit().putLong("pending", info.timestamp).apply()
+            val kind = if (info.reason == android.app.ApplicationExitInfo.REASON_ANR) "App not responding (ANR)" else "Native crash"
+            buildString {
+                appendLine("AA Installer ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                appendLine("${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
+                appendLine(SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date(info.timestamp)))
+                appendLine()
+                appendLine("$kind: ${info.description ?: "no description"}")
+                appendLine("Status ${info.status}, importance ${info.importance}")
+                if (info.reason == android.app.ApplicationExitInfo.REASON_ANR) {
+                    info.traceInputStream?.bufferedReader()?.use { appendLine(it.readText().take(12_000)) }
+                } else {
+                    appendLine("Full native backtrace: run 'adb logcat -b crash' or attach a bug report.")
+                }
+            }
+        } catch (t: Throwable) {
+            null
+        }
+    }
 
     fun clear(ctx: Context) {
         file(ctx).delete()
+        val p = prefs(ctx)
+        val pending = p.getLong("pending", 0L)
+        if (pending > 0) p.edit().putLong("seen", pending).remove("pending").apply()
+        else p.edit().putLong("seen", System.currentTimeMillis()).apply()
     }
 }

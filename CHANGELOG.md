@@ -2,6 +2,14 @@
 
 All notable changes to AA Installer. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-11-19
+
+### Fixed
+- **Crash when opening the Car copy tab** (native `SIGSEGV` in `XmlBlock.getAttributeListValue`) on RedMagic/nubia Android 16, in v1.2.0 and v1.3.0. The tab's car icon was loaded from an XML vector with `painterResource()`; it is now drawn from code. R8 code optimisation is also turned off (shrinking stays on) to avoid the same failure elsewhere.
+
+### Added
+- The crash reporter now also shows **native crashes and ANRs** recorded by Android (Android 11+), not only Java exceptions.
+
 ## [1.3.0] - 2026-11-19
 
 ### Added
@@ -49,6 +57,7 @@ All notable changes to AA Installer. Format based on [Keep a Changelog](https://
 - Open or share an APK from a file manager.
 - Clear explanations for common install errors, including RedMagic/nubia `INSTALL_FAILED_USER_RESTRICTED`.
 
+[1.3.1]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.1
 [1.3.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.3.0
 [1.2.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.2.0
 [1.1.0]: https://github.com/j0p3s/AA-Installer/releases/tag/v1.1.0

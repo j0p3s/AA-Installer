@@ -111,7 +111,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -120,6 +122,32 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.carbridge.patch.PatchPipeline
+
+// ===================================================================== icons
+
+/**
+ * The car + download glyph, built in code. Loading the same vector from XML with
+ * painterResource() crashed natively (SIGSEGV in XmlBlock) on nubia/RedMagic Android 16.
+ */
+val CarIcon: ImageVector by lazy {
+    fun path(b: ImageVector.Builder, d: String, evenOdd: Boolean = false) = b.addPath(
+        pathData = PathParser().parsePathString(d).toNodes(),
+        fill = SolidColor(Color.Black),
+        pathFillType = if (evenOdd) PathFillType.EvenOdd else PathFillType.NonZero,
+    )
+    ImageVector.Builder("Car", 24.dp, 24.dp, 108f, 108f).apply {
+        // Body with the windscreen and wheels cut out
+        path(
+            this,
+            "M36,62 L40,50 Q41.5,46 46,46 L62,46 Q66.5,46 68,50 L72,62 Q76,63 76,67 L76,74 Q76,76 74,76 L71,76 L71,79 " +
+                "Q71,81 69,81 L66,81 Q64,81 64,79 L64,76 L44,76 L44,79 Q44,81 42,81 L39,81 Q37,81 37,79 L37,76 L34,76 " +
+                "Q32,76 32,74 L32,67 Q32,63 36,62 Z M42.5,61 L45,52 Q45.6,50 47.5,50 L60.5,50 Q62.4,50 63,52 L65.5,61 Z " +
+                "M38,68 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z M64,68 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z",
+            evenOdd = true,
+        )
+        path(this, "M51,24 L57,24 L57,34 L62,34 L54,42 L46,34 L51,34 Z")
+    }.build()
+}
 
 // ===================================================================== theme
 
@@ -498,7 +526,7 @@ private fun CarScreen(vm: AppModel, actions: Actions) {
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                 Row(Modifier.padding(16.dp)) {
-                    Icon(painterResource(R.drawable.ic_fg), null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Icon(CarIcon, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text("Put any app on the car screen", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
